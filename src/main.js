@@ -325,9 +325,29 @@ function renderDistribution(distribution, correctIndex = null) {
   }).join('')}</section>`
 }
 
+function leaderboardComment(player, index, totalPlayers, totalRounds) {
+  const score = Number(player.score || 0)
+  const pct = totalRounds ? score / totalRounds : 0
+
+  if (index === 0 && score === totalRounds) return 'Full marks. Annoyingly impressive.'
+  if (index === 0) return `You came first and still only got ${score} right. Imagine if you'd actually revised.`
+  if (index === 1) return 'Second place. The most painful place to realise one guess mattered.'
+  if (index === 2) return 'Third. Technically a podium. We’ll allow the celebration.'
+  if (index === totalPlayers - 1 && totalPlayers > 1) return 'Last suits you.'
+  if (score === 0) return 'Zero. Statistically, guessing should have helped more than this.'
+  if (pct >= 0.75) return 'Strong score. Slightly concerning amount of useless knowledge.'
+  if (pct >= 0.5) return 'Respectable. Not brilliant, but definitely respectable.'
+  if (pct >= 0.25) return 'You knew some things. Unfortunately we asked about the others.'
+  return 'Confidence was high. Accuracy had other plans.'
+}
+
 function paintLeaderboard(game, players, host = false) {
   const ranked = [...players].filter(p => p.is_active).sort((a,b) => b.score - a.score || a.joined_at.localeCompare(b.joined_at))
-  const rows = ranked.map((p,i) => `<div class="leader-row ${i < 3 ? 'podium' : ''}"><span class="rank">${['🥇','🥈','🥉'][i] || `${i+1}.`}</span><strong>${esc(p.display_name)}</strong><span>${p.score} / ${game.total_rounds}</span></div>`).join('')
+  const rows = ranked.map((p,i) => `<div class="leader-row ${i < 3 ? 'podium' : ''}">
+    <span class="rank">${['🥇','🥈','🥉'][i] || `${i+1}.`}</span>
+    <div class="leader-person"><strong>${esc(p.display_name)}</strong><small>${esc(leaderboardComment(p, i, ranked.length, game.total_rounds))}</small></div>
+    <span class="leader-score">${p.score} / ${game.total_rounds}</span>
+  </div>`).join('')
   app.innerHTML = shell(`
     <section class="leaderboard-wrap">
       <div class="eyebrow">Game over</div><h1>Leaderboard</h1>
