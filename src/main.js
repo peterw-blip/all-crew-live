@@ -104,7 +104,6 @@ function joinPage() {
         <label>Your name<input id="player-name" maxlength="40" autocomplete="off" value="" placeholder="e.g. Peter" required></label>
         <label>Game code<input id="game-code" maxlength="8" autocomplete="off" value="${esc(code.toUpperCase())}" placeholder="e.g. A4B29C" required></label>
         <button class="button primary large" type="submit">Join All Crew →</button>
-        <a class="button secondary large" href="/host" style="display:block;text-align:center;margin-top:10px;text-decoration:none">I'm hosting this game</a>
         <p class="form-error" id="form-error"></p>
       </form>
     </section>`)
