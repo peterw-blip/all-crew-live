@@ -10,3 +10,7 @@
 .leader-person strong{font-size:17px}
 .leader-person small{color:var(--muted);font-size:12px;line-height:1.35}
 .leader-score{font-weight:950;white-space:nowrap}
+
+.vote-selected{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.vote-selected .button{flex:0 0 auto}
+@media(max-width:650px){.vote-selected{align-items:stretch;flex-direction:column}.vote-selected .button{width:100%}}
