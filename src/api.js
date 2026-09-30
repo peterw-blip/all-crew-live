@@ -48,7 +48,7 @@ export async function getMyVote(gameId, roundIndex) {
   const user = await currentUser()
   const { data, error } = await supabase
     .from('votes')
-    .select('player_id,round_index,answer,is_correct')
+    .select('player_id,round_index,answer,is_correct,locked')
     .eq('game_id', gameId)
     .eq('round_index', roundIndex)
     .eq('user_id', user.id)
@@ -73,6 +73,10 @@ export async function getVoteDistribution(gameId) {
 
 export async function submitVote(gameId, answer) {
   return rpc('submit_vote', { p_game_id: gameId, p_answer: answer })
+}
+
+export async function lockVote(gameId) {
+  return rpc('lock_vote', { p_game_id: gameId })
 }
 
 export async function startGame(gameId) {
