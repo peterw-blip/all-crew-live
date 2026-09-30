@@ -1,7 +1,7 @@
 import { isConfigured, ensureAnonymousSession, currentUser } from './supabase.js'
 import {
   createGame, joinGame, getGame, getPlayers, getCurrentQuestion, getMyVote,
-  getHostVotes, getVoteDistribution, submitVote, startGame, closeVoting,
+  getHostVotes, getVoteDistribution, submitVote, lockVote, startGame, closeVoting,
   revealAnswer, nextRound, endGame, removePlayer, subscribeToGame,
 } from './api.js'
 
@@ -391,15 +391,20 @@ function paintPlayer({ game, players, question, me, vote, distribution }) {
     const chosen = vote && Number(vote.answer) === i
     const correct = game.phase === 'revealed' && question.correct_answer === i
     const wrongChoice = game.phase === 'revealed' && chosen && !correct
-    const locked = Boolean(vote) || game.phase !== 'voting'
+    const locked = Boolean(vote?.locked) || game.phase !== 'voting'
     return `<button type="button" class="answer-card player-answer ${chosen ? 'chosen' : ''} ${correct ? 'is-correct' : ''} ${wrongChoice ? 'is-wrong' : ''}" data-answer="${i}" aria-disabled="${locked}">
       <span class="answer-letter">${letters[i]}</span><span class="answer-emoji">${esc(o.emoji)}</span><strong>${esc(o.label)}</strong><small>${esc(o.detail || '')}</small>
     </button>`
   }).join('')
 
   let state = ''
-  if (game.phase === 'voting' && !vote) state = `<div class="player-status open">Choose one answer. Once it's locked, you can't change it.</div>`
-  if (game.phase === 'voting' && vote) state = `<div class="player-status locked">🔒 Answer locked · ${game.answered_count} / ${active.length} answered</div>`
+  if (game.phase === 'voting' && !vote) state = `<div class="player-status open">Choose an answer. You can change it until you lock in — or until the host closes voting.</div>`
+  if (game.phase === 'voting' && vote && !vote.locked) state = `
+    <div class="player-status open vote-selected">
+      <span>Selected <strong>${letters[Number(vote.answer)]}</strong>. You can still change your answer.</span>
+      <button type="button" class="button primary" id="lock-vote">Lock in ${letters[Number(vote.answer)]}</button>
+    </div>`
+  if (game.phase === 'voting' && vote?.locked) state = `<div class="player-status locked">🔒 Answer locked · ${game.answered_count} / ${active.length} answered</div>`
   if (game.phase === 'closed') state = `<div class="player-status locked">Votes are closed. Waiting for the reveal…</div>${renderDistribution(distribution, null)}`
   if (game.phase === 'revealed') {
     const right = vote && Number(vote.answer) === Number(question.correct_answer)
@@ -418,19 +423,34 @@ function paintPlayer({ game, players, question, me, vote, distribution }) {
   bindGlobal()
   document.querySelector('.answers-grid')?.addEventListener('click', async (event) => {
     const btn = event.target.closest('.player-answer')
-    if (!btn || busy || vote || game.phase !== 'voting') return
+    if (!btn || busy || vote?.locked || game.phase !== 'voting') return
 
     busy = true
-    document.querySelectorAll('.player-answer').forEach(b => b.setAttribute('aria-disabled', 'true'))
+    document.querySelectorAll('.player-answer').forEach(b => b.classList.remove('chosen'))
     btn.classList.add('chosen')
 
     try {
       const result = await submitVote(game.id, Number(btn.dataset.answer))
-      if (!result?.ok) throw new Error('Your answer was not saved. Please tap it again.')
+      if (!result?.ok) throw new Error('Your answer could not be changed because voting has closed or it is already locked.')
+      await playerPage()
     } catch (error) {
-      btn.classList.remove('chosen')
-      document.querySelectorAll('.player-answer').forEach(b => b.setAttribute('aria-disabled', 'false'))
       alert(friendlyError(error))
+      await playerPage()
+    } finally {
+      busy = false
+    }
+  })
+
+  document.querySelector('#lock-vote')?.addEventListener('click', async () => {
+    if (busy || vote?.locked || game.phase !== 'voting') return
+    busy = true
+    try {
+      const result = await lockVote(game.id)
+      if (!result?.ok) throw new Error('Your answer could not be locked. Voting may already be closed.')
+      await playerPage()
+    } catch (error) {
+      alert(friendlyError(error))
+      await playerPage()
     } finally {
       busy = false
     }
