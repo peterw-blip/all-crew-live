@@ -92,7 +92,6 @@ function joinPage() {
   unsubscribe?.(); unsubscribe = null
   const params = new URLSearchParams(location.search)
   const code = params.get('code') || ''
-  const rememberedName = localStorage.getItem('allcrew_name') || ''
 
   app.innerHTML = shell(`
     <section class="join-layout">
@@ -102,7 +101,7 @@ function joinPage() {
         <p>Strange inventions, unexpected names and future tech that fiction got to first.</p>
       </div>
       <form class="card join-card" id="join-form">
-        <label>Your name<input id="player-name" maxlength="40" autocomplete="name" value="${esc(rememberedName)}" placeholder="e.g. Peter" required></label>
+        <label>Your name<input id="player-name" maxlength="40" autocomplete="off" value="" placeholder="e.g. Peter" required></label>
         <label>Game code<input id="game-code" maxlength="8" autocomplete="off" value="${esc(code.toUpperCase())}" placeholder="e.g. A4B29C" required></label>
         <button class="button primary large" type="submit">Join All Crew →</button>
         <a class="button secondary large" href="/host" style="display:block;text-align:center;margin-top:10px;text-decoration:none">I'm hosting this game</a>
@@ -123,7 +122,6 @@ function joinPage() {
       const name = document.querySelector('#player-name').value.trim()
       const joinCode = document.querySelector('#game-code').value.trim().toUpperCase()
       const joined = await joinGame(joinCode, name)
-      localStorage.setItem('allcrew_name', name)
       localStorage.setItem('allcrew_player_game_id', joined.game_id)
       history.replaceState({}, '', `/play?game=${joined.game_id}`)
       await playerPage()
