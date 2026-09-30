@@ -239,7 +239,7 @@ function paintHost({ game, players, question, votes, distribution }) {
         ${game.phase === 'closed' ? `<div class="host-callout">Votes are locked. Talk through the spread before you reveal the answer.</div>` : ''}
         ${distributionMarkup}
         ${revealMarkup}
-        <div class="host-actions">${mainAction}<button class="button secondary" id="end-game">End game</button></div>
+        <div class="host-actions">${mainAction}<button class="button secondary" id="reset-game">Reset / new game</button><button class="button secondary" id="end-game">End game</button></div>
       </div>
       <aside class="host-sidebar card">
         <div class="sidebar-title"><div><strong>${game.answered_count} / ${activePlayers.length}</strong><small>answered</small></div><span>${esc(game.join_code)}</span></div>
@@ -264,7 +264,10 @@ function paintLobby(game, players) {
       <div class="card lobby-players">
         <div class="lobby-heading"><h2>${players.length} joined</h2><span>Waiting for crew…</span></div>
         <div class="name-cloud">${players.map(p => `<span>${esc(p.display_name)}</span>`).join('') || '<p class="muted">Share the link and names will appear here live.</p>'}</div>
-        <button class="button primary large" id="start-game" ${players.length ? '' : 'disabled'}>Start quiz →</button>
+        <div class="lobby-actions">
+          <button class="button primary large" id="start-game" ${players.length ? '' : 'disabled'}>Start quiz →</button>
+          <button class="button secondary" id="reset-game">Reset / new code</button>
+        </div>
       </div>
     </section>`, true)
   bindGlobal()
@@ -272,6 +275,7 @@ function paintLobby(game, players) {
     await navigator.clipboard.writeText(joinUrl); e.currentTarget.textContent = 'Copied ✓'; setTimeout(() => e.currentTarget.textContent = 'Copy join link', 1200)
   })
   document.querySelector('#start-game').addEventListener('click', () => hostAction(() => startGame(game.id)))
+  document.querySelector('#reset-game').addEventListener('click', () => resetGame(game.id))
 }
 
 function bindHostActions(game) {
@@ -280,6 +284,7 @@ function bindHostActions(game) {
     if (game.phase === 'closed') return hostAction(() => revealAnswer(game.id))
     if (game.phase === 'revealed') return hostAction(() => nextRound(game.id))
   })
+  document.querySelector('#reset-game')?.addEventListener('click', () => resetGame(game.id))
   document.querySelector('#end-game')?.addEventListener('click', () => {
     if (confirm('End this game and show the leaderboard?')) hostAction(() => endGame(game.id))
   })
@@ -287,6 +292,22 @@ function bindHostActions(game) {
     const id = btn.dataset.player
     if (confirm('Remove this player from the game?')) hostAction(() => removePlayer(game.id, id))
   }))
+}
+
+async function resetGame(gameId) {
+  if (busy) return
+  if (!confirm('Reset this game? The current room will close and a fresh game code will be created.')) return
+  busy = true
+  try {
+    await endGame(gameId)
+    const next = await createGame()
+    localStorage.setItem('allcrew_host_game_id', next.game_id)
+    await renderHostGame(next.game_id)
+  } catch (error) {
+    alert(friendlyError(error))
+  } finally {
+    busy = false
+  }
 }
 
 async function hostAction(action) {
