@@ -391,7 +391,8 @@ function paintPlayer({ game, players, question, me, vote, distribution }) {
     const chosen = vote && Number(vote.answer) === i
     const correct = game.phase === 'revealed' && question.correct_answer === i
     const wrongChoice = game.phase === 'revealed' && chosen && !correct
-    return `<button class="answer-card player-answer ${chosen ? 'chosen' : ''} ${correct ? 'is-correct' : ''} ${wrongChoice ? 'is-wrong' : ''}" data-answer="${i}" ${vote || game.phase !== 'voting' ? 'disabled' : ''}>
+    const locked = Boolean(vote) || game.phase !== 'voting'
+    return `<button type="button" class="answer-card player-answer ${chosen ? 'chosen' : ''} ${correct ? 'is-correct' : ''} ${wrongChoice ? 'is-wrong' : ''}" data-answer="${i}" aria-disabled="${locked}">
       <span class="answer-letter">${letters[i]}</span><span class="answer-emoji">${esc(o.emoji)}</span><strong>${esc(o.label)}</strong><small>${esc(o.detail || '')}</small>
     </button>`
   }).join('')
@@ -415,14 +416,25 @@ function paintPlayer({ game, players, question, me, vote, distribution }) {
       <div class="answers-grid">${optionCards}</div>${state}
     </section>`, true)
   bindGlobal()
-  document.querySelectorAll('.player-answer:not([disabled])').forEach(btn => btn.addEventListener('click', async () => {
-    if (busy) return
+  document.querySelector('.answers-grid')?.addEventListener('click', async (event) => {
+    const btn = event.target.closest('.player-answer')
+    if (!btn || busy || vote || game.phase !== 'voting') return
+
     busy = true
-    document.querySelectorAll('.player-answer').forEach(b => b.disabled = true)
-    try { await submitVote(game.id, Number(btn.dataset.answer)) }
-    catch (error) { alert(friendlyError(error)); busy = false; scheduleRefresh(() => playerPage()) }
-    finally { busy = false }
-  }))
+    document.querySelectorAll('.player-answer').forEach(b => b.setAttribute('aria-disabled', 'true'))
+    btn.classList.add('chosen')
+
+    try {
+      const result = await submitVote(game.id, Number(btn.dataset.answer))
+      if (!result?.ok) throw new Error('Your answer was not saved. Please tap it again.')
+    } catch (error) {
+      btn.classList.remove('chosen')
+      document.querySelectorAll('.player-answer').forEach(b => b.setAttribute('aria-disabled', 'false'))
+      alert(friendlyError(error))
+    } finally {
+      busy = false
+    }
+  })
 }
 
 init().catch(showFatal)
